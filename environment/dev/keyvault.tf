@@ -43,6 +43,20 @@ resource "azurerm_role_assignment" "app_kv_reader" {
   principal_id         = azurerm_user_assigned_identity.app.principal_id
 }
 
+resource "azurerm_role_assignment" "deployer_kv_officer" {
+  scope                = azurerm_key_vault.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# 2. Wait 60 seconds for Azure RBAC propagation
+resource "time_sleep" "wait_for_rbac" {
+  create_duration = "60s"
+
+  depends_on = [
+    azurerm_role_assignment.deployer_kv_officer
+  ]
+}
 # Store PostgreSQL Password in Key Vault
 resource "azurerm_key_vault_secret" "db_password" {
   name         = "postgres-admin-password"
@@ -50,6 +64,7 @@ resource "azurerm_key_vault_secret" "db_password" {
   key_vault_id = azurerm_key_vault.this.id
 
   depends_on = [
-    azurerm_key_vault.this
+    azurerm_key_vault.this,
+    time_sleep.wait_for_rbac
   ]
 }
